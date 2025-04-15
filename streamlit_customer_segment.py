@@ -11,6 +11,7 @@ import joblib
 from sklearn.cluster import KMeans
 import plotly.express as px
 from sklearn.metrics import silhouette_score
+import seaborn as sns
 
 
 
@@ -19,8 +20,21 @@ st.write("## Customer Segment Project")
 
 
 
-menu = ["Overview", "Build Project", "New Prediction"]
+menu = ["Overview", "Product Insights", "Build Project", "New Prediction"]
 choice = st.sidebar.selectbox('Menu', menu)
+# Thông tin nhóm thực hiện trong sidebar
+st.sidebar.markdown(" \n")  
+st.sidebar.markdown(" \n") 
+st.sidebar.markdown(" \n") 
+st.sidebar.markdown("---")  
+st.sidebar.markdown("### 👥 Project Members:")
+st.sidebar.markdown("- Trần Hiểu Băng  \n- Mai Hồng Hà")
+
+st.sidebar.markdown("👩‍🏫 **Instructor:**  \nCô Khuất Thùy Phương")
+
+st.sidebar.markdown("📅 **Date of Submission:**  \n20/04/2025")
+
+
 df = pd.read_csv("df_no_outliers_with_no.csv")
 # Load scaler và model
 def load_model():
@@ -41,11 +55,110 @@ if choice == 'Overview':
     Develop a customer segmentation system based on the information provided by the store.
     """)  
 
+elif choice == 'Product Insights':
+    st.title("📦 Phân tích Sản phẩm & Giao dịch")
+    
+    try:
+        # Đọc dữ liệu
+        import pandas as pd
+        products = pd.read_csv("Products_with_Categories.csv")
+        transactions = pd.read_csv("Transactions.csv")
+
+        # Gộp 2 bảng
+        dff = transactions.merge(products, on="productId", how="left")
+        dff["Revenue"] = dff["items"] * dff["price"]
+        # Kiểm tra và đọc cột Date
+        if "Date" in dff.columns:
+            dff["Date"] = pd.to_datetime(dff["Date"], format="%d-%m-%Y", errors="coerce")  # Chuyển sang datetime
+            dff["Month"] = dff["Date"].dt.to_period("M").astype(str)    # Lấy tháng
+            dff["Weekday"] = dff["Date"].dt.day_name()                  # Lấy thứ trong tuần
+        else:
+            print("Cột 'Date' không tồn tại trong dataframe.")
+
+
+
+        # Chọn phần phân tích
+        analysis_type = st.radio("🔎 Chọn loại phân tích:", [
+            "Tổng quan dữ liệu", "Top sản phẩm bán chạy","Top sản phẩm bán kém",
+            "Doanh thu theo danh mục", "Phân bố giá sản phẩm",  "Số lượng bán theo tháng", "Số lượng bán theo thứ trong tuần"
+        ])
+
+        # 1. Tổng quan dữ liệu
+        if analysis_type == "Tổng quan dữ liệu":
+            st.subheader("📋 Dataset (Top 10)")
+            st.dataframe(dff.head(10))
+            st.write(f"🔢 Tổng số giao dịch: {len(dff)}")
+            st.write(f"📦 Số lượng sản phẩm khác nhau: {dff['productName'].nunique()}")
+            st.write(f"📂 Số danh mục: {dff['Category'].nunique()}")
+
+        # 2. Top sản phẩm bán chạy
+        elif analysis_type == "Top sản phẩm bán chạy":
+            top_products = dff.groupby("productName")["items"].sum().sort_values(ascending=False).head(10)
+            fig, ax = plt.subplots()
+            top_products.plot(kind="barh", color="skyblue", ax=ax)
+            ax.set_title("Top 10 sản phẩm bán chạy")
+            ax.set_xlabel("Số lượng bán")
+            ax.invert_yaxis()
+            st.pyplot(fig)
+        
+        # 3. Top sản phẩm bán chạy
+        elif analysis_type == "Top sản phẩm bán kém":
+            bottom = dff.groupby("productName")["items"].sum().sort_values().head(10)
+            fig, ax = plt.subplots()
+            bottom.plot(kind="barh", color="skyblue", ax=ax)
+            ax.set_title("Top 10 sản phẩm bán kém nhất")
+            ax.set_xlabel("Số lượng bán")
+            ax.invert_yaxis()
+            st.pyplot(fig)
+
+        # . Doanh thu theo danh mục
+        elif analysis_type == "Doanh thu theo danh mục":
+            rev_by_cat = dff.groupby("Category")["Revenue"].sum().sort_values(ascending=False)
+            fig, ax = plt.subplots()
+            rev_by_cat.plot(kind="barh", color="coral", ax=ax)
+            ax.set_title("Tổng doanh thu theo danh mục")
+            ax.set_xlabel("Doanh thu")
+            ax.set_ylabel("Danh mục")
+            #plt.xticks(rotation=45)
+            st.pyplot(fig)
+
+        # 4. Phân bố giá sản phẩm
+        elif analysis_type == "Phân bố giá sản phẩm":
+            fig, ax = plt.subplots()
+            sns.histplot(products["price"], bins=30, kde=True, color="green", ax=ax)
+            ax.set_title("Phân bố giá sản phẩm")
+            st.pyplot(fig)
+
+        elif analysis_type == "Số lượng bán theo tháng":
+            monthly_sales = dff.groupby("Month")["items"].sum().sort_index()
+            fig, ax = plt.subplots()
+            monthly_sales.plot(kind="bar", color="blue", ax=ax)
+            ax.set_title("Tổng số lượng bán theo tháng")
+            ax.set_ylabel("Số lượng")
+            ax.set_xlabel("Tháng")
+            #plt.xticks(rotation=45)
+            st.pyplot(fig)
+
+
+        elif analysis_type == "Số lượng bán theo thứ trong tuần":
+            weekday_order = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+            weekday_sales = dff.groupby("Weekday")["items"].sum().reindex(weekday_order)
+            fig, ax = plt.subplots()
+            weekday_sales.plot(kind="bar", color="orange", ax=ax)
+            ax.set_title("Tổng số lượng bán theo thứ trong tuần")
+            ax.set_ylabel("Số lượng")
+            plt.xticks(rotation=30)
+            st.pyplot(fig)
+
+
+
+    except Exception as e:
+        st.error(f"Lỗi khi xử lý dữ liệu: {e}")
+
 elif choice == 'Build Project':
     st.subheader("Build Project")
     st.write("#### Data Preprocessing")
     
-
     
 # Chuẩn hóa và dự đoán
     X_scaled = scaler.transform(df[["Recency", "Frequency", "Monetary"]])
@@ -161,75 +274,97 @@ elif choice == 'New Prediction':
     # Tạo DataFrame từ data
     df_segments = pd.DataFrame(data)
 
+    cluster_strategies = {
+    0: {
+        "title": "Loyal Customers 🫶",
+        "color": "#d1e7dd",
+        "strategy": [
+            "Duy trì chăm sóc định kỳ.",
+            "Cung cấp mã giảm giá nhỏ để giữ chân.",
+            "Mời đánh giá/chia sẻ trải nghiệm."
+        ]
+    },
+    1: {
+        "title": "Lost Customers 😞",
+        "color": "#f8d7da",
+        "strategy": [
+            "Gửi email nhắc nhở, ưu đãi quay lại.",
+            "Khảo sát lý do bỏ đi.",
+            "Chạy remarketing (Facebook/Google Ads)."
+        ]
+    },
+    2: {
+        "title": "VIP Customers 😎",
+        "color": "#e0f7fa",
+        "strategy": [
+            "Tặng ưu đãi VIP, quyền truy cập sớm sản phẩm mới.",
+            "Mời tham gia chương trình Beta/Câu lạc bộ.",
+            "Lấy feedback dịch vụ, cá nhân hóa chăm sóc."
+        ]
+    },
+    3: {
+        "title": "Dormant Customers 💤",
+        "color": "#fff3cd",
+        "strategy": [
+            "Gửi thông báo khuyến mãi giới hạn.",
+            "Gợi ý sản phẩm đã từng xem/mua.",
+            "Khuyến khích tương tác lại qua email/app."
+        ]
+    },
+    4: {
+        "title": "Potential Loyalists 🚀",
+        "color": "#cfe2ff",
+        "strategy": [
+            "Theo dõi hành vi mua để đẩy khuyến mãi đúng lúc.",
+            "Ưu đãi miễn phí vận chuyển.",
+            "Kích hoạt thông qua loyalty point."
+        ]
+    }
+}
+    def show_cluster_strategy(cluster_id):
+        info = cluster_strategies.get(cluster_id)
+        if info:
+            st.subheader(f"🎯 Strategy for {info['title']}")
+            for point in info["strategy"]:
+                st.markdown(f"- {point}")
+
+
     # Hiển thị bảng trong Streamlit
-    st.write("##### 1. Customer Segments")
+    st.markdown("### 1️⃣ Customer Segments")
     st.table(df_segments)
     # Chọn data
-    st.write("##### 2. Input/Select data")
+    # === 2. Dự đoán theo slider (Recency, Frequency, Monetary) ===
+    st.markdown("### 2️⃣ Predict using sliders")
     name = st.text_input("Name of Customer")
-    # Tìm min/max của Recency
-    min_recency = int(df["Recency"].min())
-    max_recency = int(df["Recency"].max())
 
-    # Thanh trượt cho Recency
-    recency_val = st.slider(
-        "Recency",
-        min_value=min_recency,
-        max_value=max_recency,
-        value=min_recency  
-    )
+    recency_val = st.slider("Recency", int(df["Recency"].min()), int(df["Recency"].max()), int(df["Recency"].min()))
+    frequency_val = st.slider("Frequency", int(df["Frequency"].min()), int(df["Frequency"].max()), int(df["Frequency"].min()))
+    monetary_val = st.slider("Monetary", float(df["Monetary"].min()), float(df["Monetary"].max()), float(df["Monetary"].min()))
 
-    # Tìm min/max của Frequency
-    min_frequency = int(df["Frequency"].min())
-    max_frequency = int(df["Frequency"].max())
-
-    # Thanh trượt cho Frequency
-    frequency_val = st.slider(
-        "Frequency",
-        min_value=min_frequency,
-        max_value=max_frequency,
-        value=min_frequency
-    )
-
-    # Tìm min/max của Monetary 
-    min_monetary = float(df["Monetary"].min())
-    max_monetary = float(df["Monetary"].max())
-
-    # Thanh trượt cho Monetary
-    monetary_val = st.slider(
-        "Monetary",
-        min_value=min_monetary,
-        max_value=max_monetary,
-        value=min_monetary
-    )
-
-    # Hiển thị kết quả người dùng chọn
     new_data = pd.DataFrame({
-    "Recency": [recency_val],
-    "Frequency": [frequency_val],
-    "Monetary": [monetary_val]
-})  
+        "Recency": [recency_val],
+        "Frequency": [frequency_val],
+        "Monetary": [monetary_val]
+    })
     st.write("### Dữ liệu người dùng nhập:")
     st.dataframe(new_data)
 
-    # Scale dữ liệu (chuẩn hóa) dùng scaler đã lưu
-    new_data_scaled = scaler.transform(new_data)
-
-    # Dùng model KMeans đã lưu để dự đoán cluster cho dữ liệu mới
-    pred_cluster = model.predict(new_data_scaled)
+    # Dự đoán và lưu vào session_state
+    data_scaled_slider = scaler.transform(new_data)
+    predicted_cluster_slider = model.predict(data_scaled_slider)[0]
+    segment_slider = df_segments.loc[df_segments["Cluster Number"] == predicted_cluster_slider, "Customer Segment"].values[0]
 
     st.write("### Dự đoán cụm khách hàng:")
-    predicted_cluster = pred_cluster[0]
-    st.write(f"Customer {name} belongs to Cluster {predicted_cluster} - {df_segments.loc[df_segments['Cluster Number'] == predicted_cluster, 'Customer Segment'].values[0]}.")
+    st.write(f"Customer belongs to Cluster {predicted_cluster_slider} - {segment_slider}.")
 
+    if st.button("Hiển thị chiến lược kinh doanh", key="strategy_slider"):
+        show_cluster_strategy(predicted_cluster_slider)
 
-    st.write("##### 3. Dự đoán dựa theo Member_number")
-
-    # Xác định min, max của Member_number (ép về int để dùng cho number_input)
+    # === 3. Dự đoán theo Member_number ===
+    st.markdown("### 3️⃣ Predict using Member_number")
+    st.subheader("Nhập Member_number")
     min_member = int(df["Member_number"].min())
     max_member = int(df["Member_number"].max())
-
-    st.subheader("Nhập Member_number")
 
     member_val = st.number_input(
         "Member_number (từ {} đến {})".format(min_member, max_member),
@@ -240,30 +375,87 @@ elif choice == 'New Prediction':
     )
 
     st.write(f"Bạn đã nhập Member_number: {member_val}")
-    if st.button("Xem thông tin & Dự đoán"):
-    # Tìm dòng dữ liệu theo member_number (giả sử member_number là cột trong df)
-        member_data = df[df["Member_number"] == member_val]
-    
-        if not member_data.empty:
-            st.subheader(f"Thông tin của Member_number: {member_val}")
-            st.dataframe(member_data)
-            
-            # Lấy các cột cần thiết để dự đoán: Recency, Frequency, Monetary
-            data_to_scale = member_data[["Recency", "Frequency", "Monetary"]]
-            
-            # Chuẩn hóa dữ liệu
-            scaled_data = scaler.transform(data_to_scale)
-            
-            # Dự đoán cụm
-            predicted_cluster = model.predict(scaled_data)[0]
-            # Lấy tên segment từ bảng df_segments
-            row_segment = df_segments.loc[df_segments["Cluster Number"] == predicted_cluster, "Customer Segment"]
-            
-            if not row_segment.empty:
-                segment_name = row_segment.values[0]
-            else:
-                segment_name = "Unknown"
 
-            st.write(f"**Member_number {member_val}** thuộc **Cluster {predicted_cluster}** - **{segment_name}**.")
+    if st.button("Xem thông tin & Dự đoán", key="member_button"):
+        member_data = df[df["Member_number"] == member_val]
+
+        if not member_data.empty:
+            data_to_scale = member_data[["Recency", "Frequency", "Monetary"]]
+            scaled_data = scaler.transform(data_to_scale)
+            predicted_cluster_member = model.predict(scaled_data)[0]
+
+            row_segment = df_segments.loc[df_segments["Cluster Number"] == predicted_cluster_member, "Customer Segment"]
+            segment_name = row_segment.values[0] if not row_segment.empty else "Unknown"
+
+            # Lưu vào session
+            st.session_state["member_data"] = member_data
+            st.session_state["predicted_cluster_member"] = predicted_cluster_member
+            st.session_state["segment_name"] = segment_name
         else:
-            st.error("Không tìm thấy thông tin của Member_number này trong dữ liệu.")
+            st.session_state["member_data"] = None
+            st.session_state["predicted_cluster_member"] = None
+            st.session_state["segment_name"] = None
+
+    # Hiển thị kết quả dự đoán (nếu đã lưu trước đó)
+    if "member_data" in st.session_state and st.session_state["member_data"] is not None:
+        st.subheader(f"Thông tin của Member_number: {member_val}")
+        st.dataframe(st.session_state["member_data"])
+        st.write(f"**Member_number {member_val}** thuộc **Cluster {st.session_state['predicted_cluster_member']}** - **{st.session_state['segment_name']}**.")
+
+        if st.button("Hiển thị chiến lược kinh doanh (theo cụm dự đoán)", key="strategy_member"):
+            show_cluster_strategy(st.session_state["predicted_cluster_member"])
+    elif "member_data" in st.session_state and st.session_state["member_data"] is None:
+        st.error("Không tìm thấy thông tin của Member_number này trong dữ liệu.")
+
+    st.markdown("### 4️⃣ Upload file to predict")
+
+    st.markdown("📤 Tải lên file dữ liệu (CSV hoặc Excel)")
+    st.markdown("ℹ️ **Required columns** in the uploaded file: `Name`, `Recency`, `Frequency`, `Monetary`")
+    uploaded_file = st.file_uploader("Drag and drop file here", type=["csv", "xlsx"])
+
+    if uploaded_file is not None:
+        file_ext = uploaded_file.name.split('.')[-1]
+
+        if file_ext == "csv":
+            df_upload = pd.read_csv(uploaded_file)
+        elif file_ext == "xlsx":
+            df_upload = pd.read_excel(uploaded_file)
+        else:
+            st.error("❌ Chỉ hỗ trợ file CSV hoặc Excel (.xlsx)")
+            st.stop()
+        
+        st.dataframe(df_upload)
+
+
+        required_cols = {"Name", "Recency", "Frequency", "Monetary"}
+        if required_cols.issubset(df_upload.columns):
+            # Chuẩn hóa và dự đoán
+            X = df_upload[["Recency", "Frequency", "Monetary"]]
+            X_scaled = scaler.transform(X)
+            cluster_preds = model.predict(X_scaled)
+            df_upload["Predicted Cluster"] = cluster_preds
+
+            # Thêm nhãn cụm
+            df_upload = df_upload.merge(
+                df_segments[["Cluster Number", "Customer Segment"]],
+                left_on="Predicted Cluster",
+                right_on="Cluster Number",
+                how="left"
+            )
+            # Xóa cột dư thừa
+            df_upload.drop(columns=["Cluster Number"], inplace=True)
+
+            st.write("### 📊 Kết quả dự đoán:")
+            st.dataframe(df_upload[["Name", "Recency", "Frequency", "Monetary", "Predicted Cluster", "Customer Segment"]])
+        else:
+            st.error("⚠️ File CSV phải có đầy đủ các cột: Name, Recency, Frequency, Monetary")
+
+        import io
+
+        csv = df_upload.to_csv(index=False, sep=";", encoding="utf-8")
+        st.download_button(
+            label="📥 Tải kết quả dự đoán xuống (.csv)",
+            data=csv,
+            file_name="ket_qua_du_doan.csv",
+            mime="text/csv"
+        )
